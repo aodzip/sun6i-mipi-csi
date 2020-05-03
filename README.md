@@ -44,7 +44,7 @@ obj-$(CONFIG_VIDEO_SUN6I_MIPI_CSI) += sun6i-csi/
 
 ## DeviceTree
 OV5640 Demo for Allwinner V3 / V3s / S3L / S3
-.dtsi for SoC
+### .dtsi for SoC
 ```
 csi0: csi@01cb0000 {
     compatible = "allwinner,sun8i-v3s-csi";
@@ -74,7 +74,7 @@ csi1: csi@1cb4000 {
     status = "disabled";
 };
 ```
-.dts for board
+### .dts for board
 ```
 &csi0 {
     status = "okay";
