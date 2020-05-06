@@ -859,8 +859,8 @@ static int sun6i_csi_resource_request(struct sun6i_csi_dev *sdev,
 	}
 	
 	// debug for devmem access registers
-	struct clk* bus = devm_clk_get(&pdev->dev, "bus");
-	clk_prepare_enable(bus);
+	// struct clk* bus = devm_clk_get(&pdev->dev, "bus");
+	// clk_prepare_enable(bus);
 
 	sdev->clk_mod = devm_clk_get(&pdev->dev, "mod");
 	if (IS_ERR(sdev->clk_mod)) {
@@ -879,8 +879,6 @@ static int sun6i_csi_resource_request(struct sun6i_csi_dev *sdev,
 		sdev->clk_dphy = NULL;
 		dev_warn(&pdev->dev, "Unable to acquire dphy-csi clock. No MIPI-CSI2 support.\n");
 	}
-
-	clk_prepare_enable(devm_clk_get(&pdev->dev, "misc"));
 
 	sdev->rstc_bus = devm_reset_control_get_shared(&pdev->dev, NULL);
 	if (IS_ERR(sdev->rstc_bus)) {
@@ -965,3 +963,4 @@ module_platform_driver(sun6i_csi_platform_driver);
 MODULE_DESCRIPTION("Allwinner V3s Camera Sensor Interface driver");
 MODULE_AUTHOR("Yong Deng <yong.deng@magewell.com>");
 MODULE_LICENSE("GPL");
+
