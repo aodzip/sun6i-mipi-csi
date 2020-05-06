@@ -871,8 +871,8 @@ static int sun6i_csi_resource_request(struct sun6i_csi_dev *sdev,
 	}
 	
 	// debug for devmem access registers
-	// struct clk* bus = devm_clk_get(&pdev->dev, "bus");
-	// clk_prepare_enable(bus);
+	struct clk* bus = devm_clk_get(&pdev->dev, "bus");
+	clk_prepare_enable(bus);
 
 	sdev->clk_mod = devm_clk_get(&pdev->dev, "mod");
 	if (IS_ERR(sdev->clk_mod)) {
@@ -979,3 +979,4 @@ module_platform_driver(sun6i_csi_platform_driver);
 MODULE_DESCRIPTION("Allwinner V3s Camera Sensor Interface driver");
 MODULE_AUTHOR("Yong Deng <yong.deng@magewell.com>");
 MODULE_LICENSE("GPL");
+
