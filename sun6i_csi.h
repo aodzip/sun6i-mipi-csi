@@ -46,7 +46,19 @@ struct sun6i_csi {
 	struct sun6i_csi_config		config;
 
 	struct sun6i_video		video;
-	struct v4l2_subdev *mipi_sd;
+};
+
+struct sun6i_csi_dev {
+	struct sun6i_csi		csi;
+	struct device			*dev;
+
+	struct regmap			*regmap;
+	struct clk			*clk_mod;
+	struct clk			*clk_ram;
+	struct clk			*clk_dphy;
+	struct reset_control		*rstc_bus;
+
+	int				planar_offset[3];
 };
 
 /**

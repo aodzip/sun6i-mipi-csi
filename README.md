@@ -1,6 +1,5 @@
 # Allwinner CSI Driver with DVP & MIPI-CSI2 for Mainline Linux 5.4
 ### CSI driver based on Mainline SUN6I-CSI
-### MIPI-CSI2 driver based on Allwinner H6 Homlet BSP
 
 ## Install
 
@@ -48,19 +47,11 @@ OV5640 Demo for Allwinner V3 / V3s / S3L / S3
 ```
 csi0: csi@01cb0000 {
     compatible = "allwinner,sun8i-v3s-csi";
-    reg = <0x01cb0000 0x1000>;
+    reg = <0x01cb0000 0x3000>;
     interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
-    clocks = <&ccu CLK_BUS_CSI>, <&ccu CLK_CSI1_SCLK>, <&ccu CLK_DRAM_CSI>;
-    clock-names = "bus", "mod", "ram";
+    clocks = <&ccu CLK_BUS_CSI>, <&ccu CLK_CSI1_SCLK>, <&ccu CLK_DRAM_CSI>, <&ccu CLK_MIPI_CSI>;
+    clock-names = "bus", "mod", "ram", "dphy";
     resets = <&ccu RST_BUS_CSI>;
-    status = "disabled";
-};
-
-mipi0: mipi@0 {
-    compatible = "allwinner,sun8i-v3s-mipi-csi";
-    reg = <0x01cb1000 0x2000>;
-    clocks = <&ccu CLK_MIPI_CSI>;
-    clock-names = "mod";
     status = "disabled";
 };
 
@@ -85,10 +76,6 @@ csi1: csi@1cb4000 {
             data-lanes = <1 2>;
         };
     };
-};
-
-&mipi0 {
-    status = "okay";
 };
 
 &i2c1 {

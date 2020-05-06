@@ -26,21 +26,8 @@
 
 #include "sun6i_csi.h"
 #include "sun6i_csi_reg.h"
-#include "mipi_csi/sunxi_mipi.h"
 
 #define MODULE_NAME	"sun6i-csi"
-
-struct sun6i_csi_dev {
-	struct sun6i_csi		csi;
-	struct device			*dev;
-
-	struct regmap			*regmap;
-	struct clk			*clk_mod;
-	struct clk			*clk_ram;
-	struct reset_control		*rstc_bus;
-
-	int				planar_offset[3];
-};
 
 static inline struct sun6i_csi_dev *sun6i_csi_to_dev(struct sun6i_csi *csi)
 {
@@ -171,7 +158,9 @@ int sun6i_csi_set_power(struct sun6i_csi *csi, bool enable)
 
 	if (!enable) {
 		regmap_update_bits(regmap, CSI_EN_REG, CSI_EN_CSI_EN, 0);
-
+		if (sdev->clk_dphy) {
+			clk_disable_unprepare(sdev->clk_dphy);
+		}
 		clk_disable_unprepare(sdev->clk_ram);
 		if (of_device_is_compatible(dev->of_node,
 					    "allwinner,sun50i-a64-csi"))
@@ -196,6 +185,14 @@ int sun6i_csi_set_power(struct sun6i_csi *csi, bool enable)
 		goto clk_mod_disable;
 	}
 
+	if (sdev->clk_dphy) {
+		ret = clk_prepare_enable(sdev->clk_dphy);
+		if (ret) {
+			dev_err(sdev->dev, "Enable clk_dphy_csi clk err %d\n", ret);
+			goto clk_dphy_disable;
+		}
+	}
+
 	ret = reset_control_deassert(sdev->rstc_bus);
 	if (ret) {
 		dev_err(sdev->dev, "reset err %d\n", ret);
@@ -206,6 +203,8 @@ int sun6i_csi_set_power(struct sun6i_csi *csi, bool enable)
 
 	return 0;
 
+clk_dphy_disable:
+	clk_disable_unprepare(sdev->clk_dphy);
 clk_ram_disable:
 	clk_disable_unprepare(sdev->clk_ram);
 clk_mod_disable:
@@ -703,15 +702,16 @@ static int sun6i_csi_fwnode_parse(struct device *dev,
 				  struct v4l2_async_subdev *asd)
 {
 	struct sun6i_csi *csi = dev_get_drvdata(dev);
+	struct sun6i_csi_dev *sdev = sun6i_csi_to_dev(csi);
 
 	if (vep->base.port || vep->base.id) {
 		dev_warn(dev, "Only support a single port with one endpoint\n");
 		return -ENOTCONN;
 	}
-
+	
 	switch (vep->bus_type) {
 	case V4L2_MBUS_CSI2_DPHY:
-		if(!csi->mipi_sd){
+		if(!sdev->clk_dphy){
 			dev_err(dev, "Use MIPI-CSI bus on none-mipi receiver\n");
 			return -ENOTCONN;
 		}
@@ -768,12 +768,6 @@ static int sun6i_csi_v4l2_init(struct sun6i_csi *csi)
 	if (ret)
 		goto unreg_v4l2;
 
-	ret = sunxi_mipi_get_subdev(&csi->mipi_sd, 0);
-	if (ret) {
-		csi->mipi_sd = NULL;
-		dev_warn(csi->dev, "No MIPI-CSI2 device found\n");
-	}
-
 	ret = v4l2_async_notifier_parse_fwnode_endpoints(csi->dev,
 							 &csi->notifier,
 							 sizeof(struct v4l2_async_subdev),
@@ -786,12 +780,6 @@ static int sun6i_csi_v4l2_init(struct sun6i_csi *csi)
 	ret = v4l2_async_notifier_register(&csi->v4l2_dev, &csi->notifier);
 	if (ret) {
 		dev_err(csi->dev, "notifier registration failed\n");
-		goto clean_video;
-	}
-
-	ret = sunxi_mipi_register_subdev(&csi->v4l2_dev, csi->mipi_sd);
-	if (ret) {
-		dev_err(csi->dev, "mipi registration failed\n");
 		goto clean_video;
 	}
 
@@ -847,7 +835,7 @@ static const struct regmap_config sun6i_csi_regmap_config = {
 	.reg_bits       = 32,
 	.reg_stride     = 4,
 	.val_bits       = 32,
-	.max_register	= 0x9c,
+	.max_register	= 0x20f4,
 };
 
 static int sun6i_csi_resource_request(struct sun6i_csi_dev *sdev,
@@ -886,6 +874,14 @@ static int sun6i_csi_resource_request(struct sun6i_csi_dev *sdev,
 		return PTR_ERR(sdev->clk_ram);
 	}
 
+	sdev->clk_dphy = devm_clk_get(&pdev->dev, "dphy");
+	if (IS_ERR(sdev->clk_dphy)) {
+		sdev->clk_dphy = NULL;
+		dev_warn(&pdev->dev, "Unable to acquire dphy-csi clock. No MIPI-CSI2 support.\n");
+	}
+
+	clk_prepare_enable(devm_clk_get(&pdev->dev, "misc"));
+
 	sdev->rstc_bus = devm_reset_control_get_shared(&pdev->dev, NULL);
 	if (IS_ERR(sdev->rstc_bus)) {
 		dev_err(&pdev->dev, "Cannot get reset controller\n");
@@ -919,8 +915,6 @@ static int sun6i_csi_probe(struct platform_device *pdev)
 	struct sun6i_csi_dev *sdev;
 	int ret;
 
-	sunxi_mipi_platform_register();
-
 	sdev = devm_kzalloc(&pdev->dev, sizeof(*sdev), GFP_KERNEL);
 	if (!sdev)
 		return -ENOMEM;
@@ -942,14 +936,6 @@ static int sun6i_csi_probe(struct platform_device *pdev)
 static int sun6i_csi_remove(struct platform_device *pdev)
 {
 	struct sun6i_csi_dev *sdev = platform_get_drvdata(pdev);
-
-	/*Unegister MIPI subdev*/
-	// FIX ME: Hardcoded MIPISELD
-	if(sdev->csi.mipi_sd){
-		sunxi_mipi_unregister_subdev(sdev->csi.mipi_sd);
-		sunxi_mipi_put_subdev(&sdev->csi.mipi_sd, 0);
-	}
-	sunxi_mipi_platform_unregister();
 	
 	sun6i_csi_v4l2_cleanup(&sdev->csi);
 
@@ -979,4 +965,3 @@ module_platform_driver(sun6i_csi_platform_driver);
 MODULE_DESCRIPTION("Allwinner V3s Camera Sensor Interface driver");
 MODULE_AUTHOR("Yong Deng <yong.deng@magewell.com>");
 MODULE_LICENSE("GPL");
-
