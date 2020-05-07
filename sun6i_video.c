@@ -16,7 +16,6 @@
 
 #include "sun6i_csi.h"
 #include "sun6i_video.h"
-#include "sun6i_mipi.h"
 
 /* This is got from BSP sources. */
 #define MIN_WIDTH	(32)
@@ -61,12 +60,6 @@ static const u32 supported_pixformats[] = {
 	V4L2_PIX_FMT_RGB565X,
 	V4L2_PIX_FMT_JPEG,
 };
-
-static inline struct sun6i_csi_dev *sun6i_video_to_dev(struct sun6i_video *video)
-{
-	struct sun6i_csi *csi = video->csi;
-	return container_of(csi, struct sun6i_csi_dev, csi);
-}
 
 static bool is_pixformat_valid(unsigned int pixformat)
 {
@@ -237,10 +230,6 @@ static void sun6i_video_stop_streaming(struct vb2_queue *vq)
 	sun6i_csi_set_stream(video->csi, false);
 
 	media_pipeline_stop(&video->vdev.entity);
-
-	if (video->csi->v4l2_ep.bus_type == V4L2_MBUS_CSI2_DPHY) {
-		sun6i_mipi_set_power(video->csi, 0);
-	}
 
 	/* Release all active buffers */
 	spin_lock_irqsave(&video->dma_queue_lock, flags);
@@ -685,7 +674,6 @@ static int sun6i_video_link_validate(struct media_link *link)
 	struct video_device *vdev = container_of(link->sink->entity,
 						 struct video_device, entity);
 	struct sun6i_video *video = video_get_drvdata(vdev);
-	struct v4l2_subdev *sd = sun6i_video_remote_subdev(video, NULL);
 	struct v4l2_subdev_format source_fmt;
 	int ret;
 
@@ -701,6 +689,16 @@ static int sun6i_video_link_validate(struct media_link *link)
 	if (ret < 0)
 		return ret;
 
+	if (!sun6i_csi_is_format_supported(video->csi,
+					   video->fmt.fmt.pix.pixelformat,
+					   source_fmt.format.code)) {
+		dev_err(video->csi->dev,
+			"Unsupported pixformat: 0x%x with mbus code: 0x%x!\n",
+			video->fmt.fmt.pix.pixelformat,
+			source_fmt.format.code);
+		return -EPIPE;
+	}
+
 	if (source_fmt.format.width != video->fmt.fmt.pix.width ||
 	    source_fmt.format.height != video->fmt.fmt.pix.height) {
 		dev_err(video->csi->dev,
@@ -712,39 +710,6 @@ static int sun6i_video_link_validate(struct media_link *link)
 
 	video->mbus_code = source_fmt.format.code;
 
-	if (video->csi->v4l2_ep.bus_type != V4L2_MBUS_CSI2_DPHY) {
-		if (!sun6i_csi_is_format_supported(video->csi,
-						video->fmt.fmt.pix.pixelformat,
-						source_fmt.format.code)) {
-			dev_err(video->csi->dev,
-				"Unsupported pixformat: 0x%x with mbus code: 0x%x!\n",
-				video->fmt.fmt.pix.pixelformat,
-				source_fmt.format.code);
-			return -EPIPE;
-		}
-	} else {
-		struct sun6i_mipi_param param = {0};
-		param.bps = 400 * 1000 * 1000;
-
-		ret = v4l2_subdev_call(sd, video, g_mbus_config, &param.cfg);
-		if (ret < 0) {
-			dev_warn(video->csi->dev, "v4l2 sub device sensor g_mbus_config failed, use hardcoded value\n");
-			//TODO Dynamic fetch 
-			param.cfg.type = V4L2_MBUS_CSI2_DPHY;
-			param.cfg.flags = V4L2_MBUS_CSI2_2_LANE;
-		}
-		
-		param.fmt.format.code = source_fmt.format.code;
-		param.fmt.format.field = video->fmt.fmt.pix.field;
-
-		ret = sun6i_mipi_set_param(video->csi, &param);
-		if (ret < 0) {
-			dev_err(video->csi->dev, "v4l2 sub device mipi set_fmt error: %d!\n", ret);
-			return -EPIPE;
-		}
-		
-		sun6i_mipi_set_power(video->csi, 1);
-	}
 	return 0;
 }
 

@@ -87,7 +87,7 @@ static enum pkt_fmt get_pkt_fmt(u16 bus_pix_code)
 	}
 }
 
-void sun6i_mipi_set_power(struct sun6i_csi *csi, bool enable)
+void sun6i_mipi_set_stream(struct sun6i_csi *csi, bool enable)
 {
 	struct sun6i_csi_dev *sdev = sun6i_csi_to_dev(csi);
 
@@ -107,33 +107,27 @@ void sun6i_mipi_set_power(struct sun6i_csi *csi, bool enable)
 	}
 }
 
-int sun6i_mipi_set_param(struct sun6i_csi *csi, struct sun6i_mipi_param *param)
+void sun6i_mipi_setup_bus(struct sun6i_csi *csi)
 {
+	struct v4l2_fwnode_endpoint *endpoint = &csi->v4l2_ep;
 	struct sun6i_csi_dev *sdev = sun6i_csi_to_dev(csi);
 	struct sun6i_dphy_param dphy_param = {0};
-	int lane_num, total_rx_ch;
+	int lane_num = endpoint->bus.mipi_csi2.num_data_lanes;
+	int flags = endpoint->bus.mipi_csi2.flags;
+	int total_rx_ch;
 	int i;
-
-	if (IS_FLAG(param->cfg.flags, V4L2_MBUS_CSI2_4_LANE))
-		lane_num = 4;
-	else if (IS_FLAG(param->cfg.flags, V4L2_MBUS_CSI2_3_LANE))
-		lane_num = 3;
-	else if (IS_FLAG(param->cfg.flags, V4L2_MBUS_CSI2_2_LANE))
-		lane_num = 2;
-	else
-		lane_num = 1;
-
+	
 	total_rx_ch = 0;
-	if (IS_FLAG(param->cfg.flags, V4L2_MBUS_CSI2_CHANNEL_0))
+	if (IS_FLAG(flags, V4L2_MBUS_CSI2_CHANNEL_0))
 		total_rx_ch++;
 
-	if (IS_FLAG(param->cfg.flags, V4L2_MBUS_CSI2_CHANNEL_1))
+	if (IS_FLAG(flags, V4L2_MBUS_CSI2_CHANNEL_1))
 		total_rx_ch++;
 
-	if (IS_FLAG(param->cfg.flags, V4L2_MBUS_CSI2_CHANNEL_2))
+	if (IS_FLAG(flags, V4L2_MBUS_CSI2_CHANNEL_2))
 		total_rx_ch++;
 
-	if (IS_FLAG(param->cfg.flags, V4L2_MBUS_CSI2_CHANNEL_3))
+	if (IS_FLAG(flags, V4L2_MBUS_CSI2_CHANNEL_3))
 		total_rx_ch++;
 
 	if (!total_rx_ch) {
@@ -152,14 +146,14 @@ int sun6i_mipi_set_param(struct sun6i_csi *csi, struct sun6i_mipi_param *param)
 			MIPI_CSI2_VCDT_RX_REG,
 			MIPI_CSI2_VCDT_RX_REG_CH(0xFF, i),
 			MIPI_CSI2_VCDT_RX_REG_CH(
-				MIPI_CSI2_VCDT_RX_REG_VCDT(i, get_pkt_fmt(param->fmt.format.code)),
+				MIPI_CSI2_VCDT_RX_REG_VCDT(i, get_pkt_fmt(csi->config.code)),
 				i
 			)
 		);
 	}
 
-	if (param->fmt.format.field == V4L2_FIELD_NONE ||
-	    param->fmt.format.field == V4L2_FIELD_ANY) {
+	if (csi->config.field == V4L2_FIELD_NONE ||
+	    csi->config.field == V4L2_FIELD_ANY) {
 		regmap_write_bits(sdev->regmap, MIPI_CSI2_CH_CFG_REG,
 				  MIPI_CSI2_CH_CFG_SRC_SEL, 0);
 	} else {
@@ -169,7 +163,7 @@ int sun6i_mipi_set_param(struct sun6i_csi *csi, struct sun6i_mipi_param *param)
 	}
 
 	dphy_param.lane_num = lane_num;
-	dphy_param.bps = param->bps;
+	dphy_param.bps = 400 * 1000 * 1000;
 	dphy_param.auto_bps = 1;
 	sun6i_dphy_set_param(sdev, &dphy_param);
 

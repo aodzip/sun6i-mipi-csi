@@ -26,6 +26,7 @@
 
 #include "sun6i_csi.h"
 #include "sun6i_csi_reg.h"
+#include "sun6i_mipi.h"
 
 #define MODULE_NAME	"sun6i-csi"
 
@@ -39,6 +40,11 @@ bool sun6i_csi_is_format_supported(struct sun6i_csi *csi,
 				   u32 pixformat, u32 mbus_code)
 {
 	struct sun6i_csi_dev *sdev = sun6i_csi_to_dev(csi);
+
+	if (csi->v4l2_ep.bus_type == V4L2_MBUS_CSI2_DPHY && !sdev->clk_dphy) {
+		dev_err(sdev->dev, "Use MIPI-CSI2 device on none DPHY receiver\n");
+		return false;
+	}
 
 	/*
 	 * Some video receivers have the ability to be compatible with
@@ -158,9 +164,7 @@ int sun6i_csi_set_power(struct sun6i_csi *csi, bool enable)
 
 	if (!enable) {
 		regmap_update_bits(regmap, CSI_EN_REG, CSI_EN_CSI_EN, 0);
-		if (sdev->clk_dphy) {
-			clk_disable_unprepare(sdev->clk_dphy);
-		}
+
 		clk_disable_unprepare(sdev->clk_ram);
 		if (of_device_is_compatible(dev->of_node,
 					    "allwinner,sun50i-a64-csi"))
@@ -185,14 +189,6 @@ int sun6i_csi_set_power(struct sun6i_csi *csi, bool enable)
 		goto clk_mod_disable;
 	}
 
-	if (sdev->clk_dphy) {
-		ret = clk_prepare_enable(sdev->clk_dphy);
-		if (ret) {
-			dev_err(sdev->dev, "Enable clk_dphy_csi clk err %d\n", ret);
-			goto clk_dphy_disable;
-		}
-	}
-
 	ret = reset_control_deassert(sdev->rstc_bus);
 	if (ret) {
 		dev_err(sdev->dev, "reset err %d\n", ret);
@@ -203,8 +199,6 @@ int sun6i_csi_set_power(struct sun6i_csi *csi, bool enable)
 
 	return 0;
 
-clk_dphy_disable:
-	clk_disable_unprepare(sdev->clk_dphy);
 clk_ram_disable:
 	clk_disable_unprepare(sdev->clk_ram);
 clk_mod_disable:
@@ -435,6 +429,7 @@ static void sun6i_csi_setup_bus(struct sun6i_csi_dev *sdev)
 		break;
 	case V4L2_MBUS_CSI2_DPHY:
 		cfg |= CSI_IF_CFG_MIPI_IF_MIPI;
+		sun6i_mipi_setup_bus(csi);
 		break;
 	default:
 		dev_warn(sdev->dev, "Unsupported bus type: %d\n",
@@ -442,7 +437,7 @@ static void sun6i_csi_setup_bus(struct sun6i_csi_dev *sdev)
 		break;
 	}
 
-	if(endpoint->bus_type != V4L2_MBUS_CSI2_DPHY){
+	if(endpoint->bus_type != V4L2_MBUS_CSI2_DPHY) {
 		switch (bus_width) {
 		case 8:
 			cfg |= CSI_IF_CFG_IF_DATA_WIDTH_8BIT;
@@ -460,7 +455,6 @@ static void sun6i_csi_setup_bus(struct sun6i_csi_dev *sdev)
 			break;
 		}
 	}
-
 	regmap_write(sdev->regmap, CSI_IF_CFG_REG, cfg);
 }
 
@@ -610,6 +604,9 @@ void sun6i_csi_set_stream(struct sun6i_csi *csi, bool enable)
 	struct regmap *regmap = sdev->regmap;
 
 	if (!enable) {
+		if (csi->v4l2_ep.bus_type == V4L2_MBUS_CSI2_DPHY) {
+			sun6i_mipi_set_stream(csi, 0);
+		}
 		regmap_update_bits(regmap, CSI_CAP_REG, CSI_CAP_CH0_VCAP_ON, 0);
 		regmap_write(regmap, CSI_CH_INT_EN_REG, 0);
 		return;
@@ -626,6 +623,9 @@ void sun6i_csi_set_stream(struct sun6i_csi *csi, bool enable)
 
 	regmap_update_bits(regmap, CSI_CAP_REG, CSI_CAP_CH0_VCAP_ON,
 			   CSI_CAP_CH0_VCAP_ON);
+	if (csi->v4l2_ep.bus_type == V4L2_MBUS_CSI2_DPHY) {
+		sun6i_mipi_set_stream(csi, 1);
+	}
 }
 
 /* -----------------------------------------------------------------------------
@@ -708,13 +708,9 @@ static int sun6i_csi_fwnode_parse(struct device *dev,
 		dev_warn(dev, "Only support a single port with one endpoint\n");
 		return -ENOTCONN;
 	}
-	
+
 	switch (vep->bus_type) {
 	case V4L2_MBUS_CSI2_DPHY:
-		if(!sdev->clk_dphy){
-			dev_err(dev, "Use MIPI-CSI bus on none-mipi receiver\n");
-			return -ENOTCONN;
-		}
 	case V4L2_MBUS_PARALLEL:
 	case V4L2_MBUS_BT656:
 		csi->v4l2_ep = *vep;
@@ -934,7 +930,7 @@ static int sun6i_csi_probe(struct platform_device *pdev)
 static int sun6i_csi_remove(struct platform_device *pdev)
 {
 	struct sun6i_csi_dev *sdev = platform_get_drvdata(pdev);
-	
+
 	sun6i_csi_v4l2_cleanup(&sdev->csi);
 
 	return 0;
@@ -963,4 +959,3 @@ module_platform_driver(sun6i_csi_platform_driver);
 MODULE_DESCRIPTION("Allwinner V3s Camera Sensor Interface driver");
 MODULE_AUTHOR("Yong Deng <yong.deng@magewell.com>");
 MODULE_LICENSE("GPL");
-
