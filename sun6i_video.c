@@ -433,122 +433,6 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 	return 0;
 }
 
-static int vidioc_g_edid(struct file *file, void *fh, struct v4l2_edid *edid)
-{
-	struct sun6i_video *video = video_drvdata(file);
-	struct v4l2_subdev *sd = sun6i_video_remote_subdev(video, NULL);
-	uint32_t pad = edid->pad;
-	int ret;
-
-	if (edid->pad)
-		return -EINVAL;
-	edid->pad = 0;
-	ret = v4l2_subdev_call(sd, pad, get_edid, edid);
-	edid->pad = pad;
-	return ret;
-}
-
-static int vidioc_s_edid(struct file *file, void *fh, struct v4l2_edid *edid)
-{
-	struct sun6i_video *video = video_drvdata(file);
-	struct v4l2_subdev *sd = sun6i_video_remote_subdev(video, NULL);
-	uint32_t pad = edid->pad;
-	int ret;
-	
-	if (edid->pad)
-		return -EINVAL;
-	edid->pad = 0;
-	ret = v4l2_subdev_call(sd, pad, set_edid, edid);
-	edid->pad = pad;
-	return ret;
-}
-
-static int vidioc_enum_dv_timings(struct file *file, void *priv_fh,
-				struct v4l2_enum_dv_timings *timings)
-{
-	struct sun6i_video *video = video_drvdata(file);
-	struct v4l2_subdev *sd = sun6i_video_remote_subdev(video, NULL);
-	uint32_t pad = timings->pad;
-	int ret;
-
-	if (timings->pad)
-		return -EINVAL;
-
-	timings->pad = 0;
-
-	ret = v4l2_subdev_call(sd, pad, enum_dv_timings, timings);
-
-	timings->pad = pad;
-
-	return ret;
-}
-
-static int vidioc_s_dv_timings(struct file *file, void *priv_fh,
-			     struct v4l2_dv_timings *timings)
-{
-	struct sun6i_video *video = video_drvdata(file);
-	struct v4l2_subdev *sd = sun6i_video_remote_subdev(video, NULL);
-	struct v4l2_subdev_format fmt = {
-		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
-		.pad = video->pad.index,
-	};
-	struct sun6i_csi_config config;
-	int ret;
-
-	ret = v4l2_subdev_call(sd, video, s_dv_timings, timings);
-	if (ret)
-		return ret;
-
-	ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &fmt);
-	if (ret)
-		return ret;
-
-	v4l2_fill_pix_format(&video->fmt.fmt.pix, &fmt.format);
-
-	config.pixelformat = video->fmt.fmt.pix.pixelformat;
-	config.code = video->mbus_code;
-	config.field = video->fmt.fmt.pix.field;
-	config.width = video->fmt.fmt.pix.width;
-	config.height = video->fmt.fmt.pix.height;
-
-	return sun6i_csi_update_config(video->csi, &config);
-}
-
-static int vidioc_g_dv_timings(struct file *file, void *priv_fh,
-			     struct v4l2_dv_timings *timings)
-{
-	struct sun6i_video *video = video_drvdata(file);
-	struct v4l2_subdev *sd = sun6i_video_remote_subdev(video, NULL);
-
-	return v4l2_subdev_call(sd, video, g_dv_timings, timings);
-}
-
-static int vidioc_query_dv_timings(struct file *file, void *priv_fh,
-				 struct v4l2_dv_timings *timings)
-{
-	struct sun6i_video *video = video_drvdata(file);
-	struct v4l2_subdev *sd = sun6i_video_remote_subdev(video, NULL);
-
-	return v4l2_subdev_call(sd, video, query_dv_timings, timings);
-}
-
-static int vidioc_dv_timings_cap(struct file *file, void *priv_fh,
-			       struct v4l2_dv_timings_cap *cap)
-{
-	struct sun6i_video *video = video_drvdata(file);
-	struct v4l2_subdev *sd = sun6i_video_remote_subdev(video, NULL);
-	uint32_t pad = cap->pad;
-	int ret;
-
-	if (cap->pad)
-		return -EINVAL;
-	cap->pad = 0;
-	ret = v4l2_subdev_call(sd, pad, dv_timings_cap, cap);
-	cap->pad = pad;
-
-	return ret;
-}
-
 static const struct v4l2_ioctl_ops sun6i_video_ioctl_ops = {
 	.vidioc_querycap		= vidioc_querycap,
 	.vidioc_enum_fmt_vid_cap	= vidioc_enum_fmt_vid_cap,
@@ -573,15 +457,6 @@ static const struct v4l2_ioctl_ops sun6i_video_ioctl_ops = {
 	.vidioc_log_status		= v4l2_ctrl_log_status,
 	.vidioc_subscribe_event		= v4l2_ctrl_subscribe_event,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
-
-	.vidioc_g_edid				= vidioc_g_edid,
-	.vidioc_s_edid				= vidioc_s_edid,
-
-	.vidioc_dv_timings_cap		= vidioc_dv_timings_cap,
-	.vidioc_enum_dv_timings		= vidioc_enum_dv_timings,
-	.vidioc_g_dv_timings		= vidioc_g_dv_timings,
-	.vidioc_s_dv_timings		= vidioc_s_dv_timings,
-	.vidioc_query_dv_timings	= vidioc_query_dv_timings,
 };
 
 /* -----------------------------------------------------------------------------
