@@ -57,7 +57,7 @@ csi0: csi@01cb0000 {
 
 csi1: csi@1cb4000 {
     compatible = "allwinner,sun8i-v3s-csi";
-    reg = <0x01cb4000 0x1000>;
+    reg = <0x01cb0000 0x3000>;
     interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
     clocks = <&ccu CLK_BUS_CSI>, <&ccu CLK_CSI1_SCLK>, <&ccu CLK_DRAM_CSI>;
     clock-names = "bus", "mod", "ram";
