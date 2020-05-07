@@ -41,9 +41,12 @@ bool sun6i_csi_is_format_supported(struct sun6i_csi *csi,
 {
 	struct sun6i_csi_dev *sdev = sun6i_csi_to_dev(csi);
 
-	if (csi->v4l2_ep.bus_type == V4L2_MBUS_CSI2_DPHY && !sdev->clk_dphy) {
-		dev_err(sdev->dev, "Use MIPI-CSI2 device on none DPHY receiver\n");
-		return false;
+	if (csi->v4l2_ep.bus_type == V4L2_MBUS_CSI2_DPHY) {
+		if(!sdev->clk_dphy){
+			dev_err(sdev->dev, "Use MIPI-CSI2 device on none DPHY receiver\n");
+			return false;
+		}
+		return true;
 	}
 
 	/*
@@ -959,3 +962,4 @@ module_platform_driver(sun6i_csi_platform_driver);
 MODULE_DESCRIPTION("Allwinner V3s Camera Sensor Interface driver");
 MODULE_AUTHOR("Yong Deng <yong.deng@magewell.com>");
 MODULE_LICENSE("GPL");
+
