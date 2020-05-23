@@ -13,7 +13,6 @@
 struct sun6i_dphy_param {
 	unsigned int lane_num;
 	unsigned int bps;
-	unsigned int auto_bps;
 };
 
 extern void sun6i_dphy_enable(struct sun6i_csi_dev *sdev);

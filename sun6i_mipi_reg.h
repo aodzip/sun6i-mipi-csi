@@ -25,7 +25,9 @@
 
 #define MIPI_CSI2_VCDT_RX_REG (MIPI_CSI2_OFFSET + 0x0008)
 #define MIPI_CSI2_VCDT_RX_REG_VCDT(vc, dt) (((vc & 0b11) << 6) | (dt & 0b111111))
-#define MIPI_CSI2_VCDT_RX_REG_CH(data, ch) (data << (ch * 8))
+#define MIPI_CSI2_VCDT_RX_REG_CH_DATA(data, ch) (data << (ch * 8))
+#define MIPI_CSI2_VCDT_RX_REG_CH_MASK(ch) (MIPI_CSI2_VCDT_RX_REG_CH_DATA(0xFF, ch))
+#define MIPI_CSI2_VCDT_RX_REG_CH_CONF(ch, dt) (MIPI_CSI2_VCDT_RX_REG_CH_DATA(MIPI_CSI2_VCDT_RX_REG_VCDT(ch, dt), ch))
 /* MIPI_CSI2_VCDT_RX_REG */
 
 #define MIPI_CSI2_CH_CFG_REG (MIPI_CSI2_OFFSET + 0x0040)

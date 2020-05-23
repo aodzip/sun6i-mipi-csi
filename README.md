@@ -69,6 +69,7 @@ csi1: csi@1cb4000 {
 ```
 &csi0 {
     status = "okay";
+    allwinner,mipi-csi-bps = <400000000>;
     port {
         csi0_ep: endpoint {
             remote-endpoint = <&ov5640_0>;

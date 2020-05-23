@@ -23,78 +23,17 @@ void sun6i_dphy_rx_enable(struct regmap *regmap, unsigned char lane_num)
 {
 	regmap_write_bits(regmap, DPHY_RX_CTL_REG, DPHY_RX_CTL_REG_RX_CLK_FORCE,
 			  1 << DPHY_RX_CTL_REG_RX_CLK_FORCE_SHIFT);
-	switch (lane_num - 1) {
-	case 3:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D3_FORCE,
-				  1 << DPHY_RX_CTL_REG_RX_D3_FORCE_SHIFT);
-	case 2:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D2_FORCE,
-				  1 << DPHY_RX_CTL_REG_RX_D2_FORCE_SHIFT);
-	case 1:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D1_FORCE,
-				  1 << DPHY_RX_CTL_REG_RX_D1_FORCE_SHIFT);
-	case 0:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D0_FORCE,
-				  1 << DPHY_RX_CTL_REG_RX_D0_FORCE_SHIFT);
-		break;
-	default:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D3_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D3_FORCE_SHIFT);
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D2_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D2_FORCE_SHIFT);
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D1_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D1_FORCE_SHIFT);
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D0_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D0_FORCE_SHIFT);
-		break;
-	}
+	regmap_write_bits(regmap, DPHY_RX_CTL_REG,
+			  DPHY_RX_CTL_REG_RX_DATA_FORCE,
+			  GENMASK(lane_num - 1, 0) << DPHY_RX_CTL_REG_RX_DATA_FORCE_SHIFT);
 }
 
-void sun6i_dphy_rx_disable(struct regmap *regmap, unsigned char lane_num)
+void sun6i_dphy_rx_disable(struct regmap *regmap)
 {
 	regmap_write_bits(regmap, DPHY_RX_CTL_REG, DPHY_RX_CTL_REG_RX_CLK_FORCE,
 			  0 << DPHY_RX_CTL_REG_RX_CLK_FORCE_SHIFT);
-	switch (lane_num - 1) {
-	case 3:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D3_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D3_FORCE_SHIFT);
-	case 2:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D2_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D2_FORCE_SHIFT);
-	case 1:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D1_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D1_FORCE_SHIFT);
-	case 0:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D0_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D0_FORCE_SHIFT);
-		break;
-	default:
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D3_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D3_FORCE_SHIFT);
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D2_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D2_FORCE_SHIFT);
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D1_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D1_FORCE_SHIFT);
-		regmap_write_bits(regmap, DPHY_RX_CTL_REG,
-				  DPHY_RX_CTL_REG_RX_D0_FORCE,
-				  0 << DPHY_RX_CTL_REG_RX_D0_FORCE_SHIFT);
-		break;
-	}
+	regmap_write_bits(regmap, DPHY_RX_CTL_REG,
+			  DPHY_RX_CTL_REG_RX_DATA_FORCE, 0);
 }
 
 void sun6i_dphy_rx_dbc_enable(struct regmap *regmap)
@@ -246,17 +185,17 @@ unsigned int sun6i_dphy_det_mipi_clk(struct regmap *regmap,
 	freq_cnt = sun6i_dphy_rx_get_freq_cnt(regmap);
 	if (freq_cnt == 0)
 		return mipi_bps;
-	return 1000 * DPHY_CLK * 8 / freq_cnt;
+	return 1000 * 8 * (DPHY_CLK / freq_cnt);
 }
 
-void sun6i_dphy_set_timing(struct regmap *regmap, unsigned int mipi_bps,
-			   unsigned int mode)
+void sun6i_dphy_set_timing(struct regmap *regmap, unsigned int mipi_bps)
 {
 	unsigned int rx_dly;
 	unsigned int lprst_dly;
 
-	if (mode == 1)
+#if 0
 		mipi_bps = sun6i_dphy_det_mipi_clk(regmap, mipi_bps);
+#endif
 
 	rx_dly = mipi_bps == 0 ? 0 : (8 * (DPHY_CLK / (mipi_bps / 8)));
 	lprst_dly = mipi_bps == 0 ? 0 : (4 * (DPHY_CLK / (mipi_bps / 2)));
@@ -278,8 +217,8 @@ void sun6i_dphy_set_param(struct sun6i_csi_dev *sdev,
 			  struct sun6i_dphy_param *param)
 {
 	sun6i_dphy_ana_init(sdev->regmap);
-	sun6i_dphy_set_timing(sdev->regmap, param->bps, param->auto_bps);
-	sun6i_dphy_rx_disable(sdev->regmap, 4);
+	sun6i_dphy_set_timing(sdev->regmap, param->bps);
+	sun6i_dphy_rx_disable(sdev->regmap);
 	sun6i_dphy_set_data_lane(sdev->regmap, param->lane_num);
 	sun6i_dphy_rx_enable(sdev->regmap, param->lane_num);
 }
