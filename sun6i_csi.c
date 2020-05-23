@@ -705,7 +705,6 @@ static int sun6i_csi_fwnode_parse(struct device *dev,
 				  struct v4l2_async_subdev *asd)
 {
 	struct sun6i_csi *csi = dev_get_drvdata(dev);
-	struct sun6i_csi_dev *sdev = sun6i_csi_to_dev(csi);
 
 	if (vep->base.port || vep->base.id) {
 		dev_warn(dev, "Only support a single port with one endpoint\n");
