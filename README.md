@@ -101,6 +101,13 @@ csi1: csi@1cb4000 {
         };
     };
 };
+
+&pio {
+    csi0_mclk: csi0-mclk@0 {
+        pins = "PE20";
+        function = "csi_mipi";
+    };
+};
 ```
 ## Compile
 ### Enable Driver in 

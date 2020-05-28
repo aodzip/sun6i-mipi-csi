@@ -112,6 +112,12 @@ void sun6i_mipi_setup_bus(struct sun6i_csi *csi)
 	struct sun6i_csi_dev *sdev = sun6i_csi_to_dev(csi);
 	struct sun6i_dphy_param dphy_param = { 0 };
 	int lane_num = endpoint->bus.mipi_csi2.num_data_lanes;
+	bool input_interlaced = false;
+
+	if (csi->config.field == V4L2_FIELD_INTERLACED ||
+	    csi->config.field == V4L2_FIELD_INTERLACED_TB ||
+	    csi->config.field == V4L2_FIELD_INTERLACED_BT)
+		input_interlaced = true;
 
 	regmap_write_bits(sdev->regmap, MIPI_CSI2_CFG_REG, MIPI_CSI2_CFG_DL_CFG,
 			  (lane_num - 1) << MIPI_CSI2_CFG_DL_CFG_SHIFT);
@@ -122,22 +128,22 @@ void sun6i_mipi_setup_bus(struct sun6i_csi *csi)
 			  MIPI_CSI2_VCDT_RX_REG_CH_CONF(
 				  0, get_pkt_fmt(csi->config.code)));
 
-	if (csi->config.field == V4L2_FIELD_NONE ||
-	    csi->config.field == V4L2_FIELD_ANY) {
-		regmap_write_bits(sdev->regmap, MIPI_CSI2_CH_CFG_REG,
-				  MIPI_CSI2_CH_CFG_SRC_SEL, 0);
-	} else {
+	if (input_interlaced) {
 		regmap_write_bits(sdev->regmap, MIPI_CSI2_CH_CFG_REG,
 				  MIPI_CSI2_CH_CFG_SRC_SEL,
 				  MIPI_CSI2_CH_CFG_SRC_SEL);
+	} else {
+		regmap_write_bits(sdev->regmap, MIPI_CSI2_CH_CFG_REG,
+				  MIPI_CSI2_CH_CFG_SRC_SEL, 0);
 	}
 
 	dphy_param.lane_num = lane_num;
 	if (of_property_read_u32(sdev->dev->of_node, "allwinner,mipi-csi-bps",
-				   &dphy_param.bps))
-	{
+				 &dphy_param.bps)) {
 		dphy_param.bps = 400 * 1000 * 1000;
-		dev_warn(sdev->dev, "Using default allwinner,mipi-csi-bps: %u\n", dphy_param.bps);
+		dev_warn(sdev->dev,
+			 "Using default allwinner,mipi-csi-bps: %u\n",
+			 dphy_param.bps);
 	}
 	sun6i_dphy_set_param(sdev, &dphy_param);
 }
