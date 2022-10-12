@@ -1,4 +1,4 @@
-# Allwinner CSI Driver with DVP & MIPI-CSI2 for Mainline Linux 5.4
+# Allwinner CSI Driver with DVP & MIPI-CSI2 for Mainline Linux 5.8
 ### CSI driver based on Mainline SUN6I-CSI
 
 ## Install
